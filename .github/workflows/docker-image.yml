@@ -1,18 +1,21 @@
-name: Docker Image CI
+name: Docker Compose Build Check
 
 on:
-  push:
-    branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
-
   build:
-
     runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
+      - uses: actions/checkout@v4
+
+      - name: Build flask
+        run: docker compose build flask
+      
+      - name: Build broker
+        run: docker compose build broker
+      
+      - name: Build database
+        run: docker compose build database
