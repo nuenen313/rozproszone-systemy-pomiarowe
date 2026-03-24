@@ -101,4 +101,10 @@ Projekt będzie rozwijany etapami w trakcie semestru.
 W kolejnych zajęciach repozytorium będzie rozszerzane o dodatkowe serwisy, integracje i mechanizmy bezpieczeństwa.
 
 ### Laboratorium 3
-Dodano funkcję odczytu temperatury.
+Dodano funkcję odczytu temperatury:
+```cpp
+extern "C" uint8_t temprature_sens_read();
+doc["value"] = (temprature_sens_read()-32)/1.8;
+```
+
+Temperatura jest publikowana do MQTT.
