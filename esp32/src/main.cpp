@@ -3,13 +3,21 @@
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include "secrets.h"
-
-extern "C" uint8_t temprature_sens_read();
+#include "sensorsim.h"
+#include <time.h>
+#include <sys/time.h>
+#include <Preferences.h>
+#include <map>
 
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 String deviceId;
 String topic;
+String topicCurrent;
+Preferences prefs;
+std::map<String, uint32_t> seqMap;
+
+long long getTimestampMs();
 String generateDeviceIdFromEfuse() {
     uint64_t chipId = ESP.getEfuseMac();
     char id[32];
@@ -46,39 +54,85 @@ void connectMQTT() {
         }
     }
 }
-void publishMeasurement() {
+
+long long getTimestampMs() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return ((long long)tv.tv_sec * 1000LL) + (tv.tv_usec / 1000);
+}
+
+void publishStatusTopic(String status) {
+    String topicStatus = topic + "status";
+    mqttClient.publish(topicStatus.c_str(), status.c_str());
+    Serial.print("Publikacja statusu na topic: ");
+    Serial.println(topicStatus);   
+    Serial.println(status);
+}
+
+void publishMeasurement(String sensor, float sensorValue, String unit) {
     JsonDocument doc;
+    doc["schema_version"] = "1.0"; //na razie hard coded
     doc["device_id"] = deviceId;
-    doc["sensor"] = "temperature";
-    doc["value"] = (temprature_sens_read()-32)/1.8;
-    doc["unit"] = "C";
-    doc["ts_ms"] = millis();
+    doc["sensor"] = sensor;
+    doc["value"] = sensorValue;
+    doc["unit"] = unit;
+    doc["ts_ms"] = getTimestampMs();
+    topicCurrent = topic + sensor;
+    uint32_t currentSeq = ++seqMap[topicCurrent];
+    doc["seq"] = currentSeq;
     char payload[256];
     serializeJson(doc, payload);
-    mqttClient.publish(topic.c_str(), payload);
+    mqttClient.publish(topicCurrent.c_str(), payload);
     Serial.print("Publikacja na topic: ");
-    Serial.println(topic);
+    Serial.println(topicCurrent);   
     Serial.println(payload);
 }
 
 void setup() {
     Serial.begin(115200);
-    delay(1000);
-    deviceId = generateDeviceIdFromEfuse();
-    topic = "lab/" + String(MQTT_GROUP) + "/" + deviceId + "/temperature";
+    delay(2000);
+    prefs.begin("app", false);
+
+    deviceId = prefs.getString("device_id", "");
+    Serial.println("Odczyt device ID z flash: " + deviceId);
+    if (deviceId == "") {
+        deviceId = generateDeviceIdFromEfuse();
+        prefs.putString("device_id", deviceId);
+        Serial.println("Zapisano do flash nowy device ID: " + deviceId);
+    } else {
+        Serial.println("Odczytano device ID z pamięci: " + deviceId);
+    }
+    delay(2000);
+
+    topic = "lab/" + String(MQTT_GROUP) + "/" + deviceId + "/";
     Serial.print("Device ID: ");
     Serial.println(deviceId);
     connectWiFi();
+    configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+    struct tm timeinfo;
+    while (!getLocalTime(&timeinfo)) {
+        Serial.println("Oczekiwanie na synchronizacje czasu...");
+        delay(500);
+    }
+    Serial.println("Czas zsynchronizowany.");
     connectMQTT();
 }
 void loop() {
     if (WiFi.status() != WL_CONNECTED) {
-    connectWiFi();
+        connectWiFi();
     }
+    long long ts_ms = getTimestampMs();
+    Serial.println(ts_ms);
     if (!mqttClient.connected()) {
-    connectMQTT();
+        connectMQTT();
+    }
+    else {
+        publishStatusTopic("online");
     }
     mqttClient.loop();
-    publishMeasurement();
+    publishMeasurement("temperature", getSimTemperature(), "C");
+    publishMeasurement("humidity", getSimHumidity(), "%");
+    publishMeasurement("azimuth", getSimAzimuth(), "deg");
+    publishMeasurement("core_temperature", getRealCoreTemperature(), "C");
     delay(5000);
 }
