@@ -99,3 +99,6 @@ Repozytorium zawiera między innymi następujące katalogi:
 
 Projekt będzie rozwijany etapami w trakcie semestru.
 W kolejnych zajęciach repozytorium będzie rozszerzane o dodatkowe serwisy, integracje i mechanizmy bezpieczeństwa.
+
+### Laboratorium 3
+Dodano funkcję odczytu temperatury.
