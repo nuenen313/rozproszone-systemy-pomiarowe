@@ -74,7 +74,7 @@ void publishMeasurement(String sensor, float sensorValue, String unit) {
     doc["schema_version"] = "1.0"; //na razie hard coded
     doc["device_id"] = deviceId;
     doc["sensor"] = sensor;
-    doc["value"] = sensorValue;
+    doc["sensor_value"] = sensorValue;
     doc["unit"] = unit;
     doc["ts_ms"] = getTimestampMs();
     topicCurrent = topic + sensor;
