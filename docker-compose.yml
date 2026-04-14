@@ -24,4 +24,16 @@ services:
     ports:
       - 5432:5432
     image: database:v1
+    volumes:
+      - ./database/01-init_database.sql:/docker-entrypoint-initdb.d/01-init_database.sql
     container_name: postgres
+
+
+  ingestor:
+    build:
+      context: ./ingestor
+      dockerfile: Dockerfile
+    container_name: ingestor
+    depends_on:
+      - broker
+      - database

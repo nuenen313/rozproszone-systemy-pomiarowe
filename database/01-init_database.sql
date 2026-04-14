@@ -1,4 +1,4 @@
-CREATE TABLE sensor (
+CREATE TABLE IF NOT EXISTS sensor (
     uuid UUID PRIMARY KEY,
     name TEXT NOT NULL,
     type TEXT,
