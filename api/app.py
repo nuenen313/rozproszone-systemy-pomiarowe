@@ -1,5 +1,8 @@
 from flask import Flask, jsonify, request
 from db import get_connection
+from db import SessionLocal
+from sqlalchemy import select
+from models import Measurement
 
 app = Flask(__name__)
 
@@ -85,6 +88,16 @@ def get_device(device_id):
 # ---------------------------------------------------------------------------
 # Measurements  (measurements table)
 # ---------------------------------------------------------------------------
+@app.route("/v2/measurements")
+def get_measurements_v2():
+    """Most recent 20 measurements using SQLAlchemy."""
+    with SessionLocal() as db:
+        try:
+            rows = db.scalars(select(Measurement)).all()
+        except Exception as e:
+            print("Error:", e)
+            return jsonify({"message": "Error occurred while fetching measurements"}), 500
+    return jsonify(Measurement.list_to_dict(rows))
 
 @app.route("/measurements")
 def get_measurements():
@@ -132,8 +145,9 @@ def get_measurement_history():
       limit      (optional, default 20)
     """
     device_id = request.args.get("device_id")
-    sensor    = request.args.get("sensor")
-    limit     = request.args.get("limit", default=20, type=int)
+    sensor = request.args.get("sensor")
+    limit = request.args.get("limit", default=20, type=int)
+    order = request.args.get("order", default="desc", type=str).lower()
 
     conn = get_connection()
     cur = conn.cursor()
@@ -149,7 +163,9 @@ def get_measurement_history():
     if sensor:
         query += " AND sensor = %s"
         params.append(sensor)
-    query += " ORDER BY id DESC LIMIT %s"
+    if order not in ("asc", "desc"):
+        order = "desc"
+    query += f" ORDER BY id {order} LIMIT %s"
     params.append(limit)
 
     cur.execute(query, params)
