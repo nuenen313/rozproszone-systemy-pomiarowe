@@ -91,9 +91,14 @@ def get_device(device_id):
 @app.route("/v2/measurements")
 def get_measurements_v2():
     """Most recent 20 measurements using SQLAlchemy."""
+    limit = request.args.get("limit", default=20, type=int)
+    order = request.args.get("order", default="desc", type=str).lower()
     with SessionLocal() as db:
         try:
-            rows = db.scalars(select(Measurement)).all()
+            rows = db.scalars(select(Measurement)
+                                .order_by(Measurement.id.asc() if order == "asc" else Measurement.id.desc())
+                                .limit(limit)
+                                ).all()
         except Exception as e:
             print("Error:", e)
             return jsonify({"message": "Error occurred while fetching measurements"}), 500
