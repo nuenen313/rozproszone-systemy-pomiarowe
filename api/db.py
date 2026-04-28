@@ -1,4 +1,8 @@
 import psycopg2
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+# TODO: add timestamp received at
 
 DB_HOST="database"
 DB_NAME="abcd_db"
@@ -12,3 +16,8 @@ def get_connection() :
 	    user=DB_USER,
 	    password=DB_PASSWORD
    )
+
+DATABASE_URL = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:5432/{DB_NAME}"
+
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
