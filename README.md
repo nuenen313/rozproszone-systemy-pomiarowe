@@ -1,110 +1,256 @@
-# Rozproszone systemy pomiarowe
+# Distributed Measurement System
 
-Repozytorium startowe do projektu z systemów rozproszonych.  
-Projekt dotyczy budowy rozproszonego systemu pomiarowego, w którym urządzenia ESP32 zbierają dane z czujników, publikują je do brokera MQTT, a następnie dane są odbierane przez serwisy backendowe, zapisywane do bazy danych i udostępniane przez REST API.
+This repository contains a simple measurement system based on ESP32 devices, an MQTT broker, a Flask backend, and a PostgreSQL database. Devices publish data to the broker, the `ingestor` receives messages from MQTT and stores them in the database, and the REST API exposes the data for further use.
 
-Aktualnie projekt zawiera przygotowane serwisy backendowe uruchamiane przez Docker Compose oraz katalogi na kolejne elementy systemu, takie jak:
-- `esp32`
-- `ingestor`
-- `ui`
-- `docs`
+## Project structure
+
+- `api/` — Flask REST API backend
+- `broker/` — MQTT broker (Mosquitto)
+- `database/` — PostgreSQL initialization
+- `esp32/` — firmware for ESP32 devices
+- `ingestor/` — service that subscribes to MQTT and stores data in the database
+- `ui/` — desktop application
+- `docs/` — project documentation
 
 ---
 
-## Quick Start
+## Requirements
 
-Poniższa instrukcja pozwala uruchomić podstawową wersję środowiska projektowego dla systemu rozproszonego.
+Before running the project, make sure you have installed:
 
-### Wymagania
-
-Przed uruchomieniem upewnij się, że masz zainstalowane:
 - Docker
 - Docker Compose
+- Python 3
+- optionally: MQTT Explorer or Mosquitto tools for testing the broker
 
-### Klonowanie repozytorium
+---
+
+## Quick start
+
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/mateuszbartczak-pwr/Rozproszone-systemy-pomiarowe.git
 cd Rozproszone-systemy-pomiarowe
 ```
 
-### Uruchomienie środowiska
-Aby zbudować i uruchomić wszystkie dostępne serwisy:
-```bash
-docker compose up --build
-```
-lub aby uruchomić środowisko w tle:
+### 2. Start the environment
+
 ```bash
 docker compose up -d --build
 ```
-### Zatrzymanie środowiska
-```bash
-docker compose down
-```
 
-### Aktualnie dostępne serwisy
+This starts the following containers:
 
-Po uruchomieniu Docker Compose powinny być dostępne następujące usługi:
+- `api`
+- `broker`
+- `database`
+- `ingestor`
 
-- REST API (Flask) — http://localhost:5001
+### 3. Check the status
 
-- Broker MQTT — localhost:1883
-
-- PostgreSQL — localhost:5432
-
-### Podgląd logów
-
-Aby sprawdzić logi wszystkich serwisów:
-```bash
-docker compose logs
-```
-
-Aby śledzić logi na żywo:
-```bash
-docker compose logs -f
-```
-
-Aby wyświetlić logi tylko jednego serwisu:
-```bash
-docker compose logs -f flask
-docker compose logs -f broker
-docker compose logs -f database
-```
-Sprawdzenie statusu kontenerów
 ```bash
 docker compose ps
 ```
 
-### Struktura projektu
+### 4. View logs
 
-Repozytorium zawiera między innymi następujące katalogi:
-
-- `api/` — backend REST API
-
-- `broker/` — broker MQTT
-
-- `database/` — baza danych PostgreSQL
-
-- `esp32/` — kod dla urządzeń ESP32
-
-- `ingestor/` — serwis odbierający dane z MQTT i zapisujący je do bazy
-
-- `ui/` — warstwa interfejsu użytkownika
-
-- `docs/` — dokumentacja projektu
-
-- `utils/` — narzędzia pomocnicze
-
-### Uwagi
-
-Projekt będzie rozwijany etapami w trakcie semestru.
-W kolejnych zajęciach repozytorium będzie rozszerzane o dodatkowe serwisy, integracje i mechanizmy bezpieczeństwa.
-
-### Laboratorium 3
-Dodano funkcję odczytu temperatury:
-```cpp
-extern "C" uint8_t temprature_sens_read();
-doc["value"] = (temprature_sens_read()-32)/1.8;
+```bash
+docker compose logs -f
 ```
 
-Temperatura jest publikowana do MQTT.
+Or only for a specific service:
+
+```bash
+docker compose logs -f broker
+docker compose logs -f api
+docker compose logs -f database
+docker compose logs -f ingestor
+```
+
+### 5. Stop the environment
+
+```bash
+docker compose down
+```
+
+---
+
+## Services available after startup
+
+- REST API: http://localhost:5001
+- MQTT broker: localhost:1883
+- PostgreSQL: localhost:5432
+
+---
+
+## MQTT
+
+In this project version, the MQTT broker is configured to accept anonymous connections.
+
+In [broker/mosquitto.conf](broker/mosquitto.conf), the configuration is:
+
+```conf
+allow_anonymous true
+listener 1883
+```
+
+This means no username or password is required to connect to MQTT.
+
+### Connection parameters
+
+- Host: `localhost`
+- Port: `1883`
+- Username: empty
+- Password: empty
+
+If you are testing the broker locally:
+
+```bash
+mosquitto_sub -h localhost -p 1883 -t 'lab/#' -v
+```
+
+If you want to check messages from the Docker network, use the host name `broker`:
+
+```bash
+mosquitto_sub -h broker -p 1883 -t 'lab/#' -v
+```
+
+> This is not a production-safe configuration, but it works correctly for this lab/project setup.
+
+---
+
+## REST API
+
+After starting the backend, the following endpoints are available:
+
+### Application health
+
+```bash
+curl http://localhost:5001/health
+```
+
+### List devices
+
+```bash
+curl http://localhost:5001/devices
+```
+
+### Latest measurements
+
+```bash
+curl http://localhost:5001/measurements
+curl http://localhost:5001/measurements/latest
+```
+
+### Measurement history with filters
+
+```bash
+curl "http://localhost:5001/measurements/history?device_id=esp32-XXXX&sensor=temperature&limit=10"
+```
+
+---
+
+## Running the UI
+
+The desktop application is located in the `ui/` directory and is best launched from that folder, because imports are resolved relative to files in that directory.
+
+```bash
+cd ui
+python3 main.py
+```
+
+If you run the project from the repository root, use:
+
+```bash
+cd /home/marta/Desktop/repos/Rozproszone-systemy-pomiarowe/ui
+python3 main.py
+```
+
+---
+
+## Example MQTT topics
+
+MQTT topics usually follow this structure:
+
+```text
+lab/{group_id}/{device_id}/{sensor}
+```
+
+Example:
+
+```text
+lab/g05/esp32-1234/temperature
+```
+
+Measurement data is stored in the `measurements` table, and device status values are stored in the `device_status` table.
+
+---
+
+## Database
+
+Once the PostgreSQL container is running, the database is available with the following parameters:
+
+- host: `localhost`
+- port: `5432`
+- user: `admin`
+- password: `admin_pass1234`
+- database: `abcd_db`
+
+The initialization scripts are located in:
+
+- `database/01-init_database.sql`
+
+---
+
+## ESP32
+
+The ESP32 firmware publishes data to MQTT and creates topics using this format:
+
+```cpp
+lab/{MQTT_GROUP}/{deviceId}/{sensor}
+```
+
+Wi‑Fi and MQTT parameters are configured in:
+
+- `esp32/include/secrets.h`
+
+---
+
+## Common issues
+
+### 1. `python3 main.py` does not work from the repository root
+
+Run the UI from the `ui/` folder:
+
+```bash
+cd ui
+python3 main.py
+```
+
+### 2. No MQTT connection
+
+Check the broker logs:
+
+```bash
+docker compose logs -f broker
+```
+
+Make sure you are using port `1883` and that the username/password fields are empty.
+
+### 3. API not responding
+
+Check the logs for the backend and database:
+
+```bash
+docker compose logs -f api
+docker compose logs -f database
+```
+
+---
+
+## Project goal
+
+The goal of this project is to build a distributed measurement system in which devices collect data from sensors, send it via MQTT, store it in a database, and expose it through an API and a user interface.
+
+The project is developed in stages and can be extended with additional modules, security features, and further functionality.
