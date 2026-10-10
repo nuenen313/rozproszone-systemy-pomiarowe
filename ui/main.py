@@ -8,7 +8,6 @@ def main():
     app = QApplication(sys.argv)
     app.setStyleSheet(STYLESHEET)
 
-    # Try to use a monospaced font if available
     QFontDatabase.addApplicationFont("JetBrainsMono-Regular.ttf")
     app.setFont(QFont("Consolas", 10))
 
